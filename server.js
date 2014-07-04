@@ -6,7 +6,7 @@ var fs = require('fs'),
 	static = require("serve-static"),
 	urlrouter = require('urlrouter'),
 	request = require('request'),
-	OAuth2 = require('OAuth').OAuth2;
+	OAuth2 = require('oauth').OAuth2;
 
 var secret, access_token;	
 
