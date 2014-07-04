@@ -5,8 +5,30 @@ var fs = require('fs'),
 	logger = require("morgan"),
 	static = require("serve-static"),
 	urlrouter = require('urlrouter'),
-	request = require('request');
+	request = require('request'),
+	OAuth2 = require('OAuth').OAuth2;
+
+var secret, access_token;	
+
+fs.readFile(__dirname + '/secret.json', 'utf8', function(err, data) {
+	if (err) {
+		console.log("Error: " + err);
+		return;
+	}
 	
+	secret = JSON.parse(data)[0];
+	var oauth2 = new OAuth2(secret.key, secret.secret_key, 'https://api.twitter.com/', null, 'oauth2/token', null);
+	
+	oauth2.getOAuthAccessToken('', {
+		'grant_type': 'client_credentials'
+	  }, function (e, token) {
+			console.log(e, token);
+		  access_token = token;
+	});
+})
+
+
+
 	
 var app = connect()
 	.use(logger('dev'))
@@ -23,6 +45,9 @@ var app = connect()
 				pathname: '/1.1/statuses/user_timeline.json',
 				query: {
 					screen_name: username, count: 10
+				},
+				headers: {
+					Authorization: "Bearer " + access_token
 				}
 			};
 			var reqUrl = url.format(options);
