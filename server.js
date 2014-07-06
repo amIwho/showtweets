@@ -6,56 +6,58 @@ var fs = require('fs'),
 	static = require("serve-static"),
 	urlrouter = require('urlrouter'),
 	request = require('request'),
-	OAuth2 = require('oauth').OAuth2;
+	OAuth = require('oauth'),
+	render = require('connect-render');
 
 var secret, access_token;	
 
-fs.readFile(__dirname + '/secret.json', 'utf8', function(err, data) {
-	if (err) {
-		console.log("Error: " + err);
-		return;
-	}
-	
-	secret = JSON.parse(data)[0];
-	var oauth2 = new OAuth2(secret.key, secret.secret_key, 'https://api.twitter.com/', null, 'oauth2/token', null);
-	
-	oauth2.getOAuthAccessToken('', {
-		'grant_type': 'client_credentials'
-	  }, function (e, token) {
-			console.log(e, token);
-		  access_token = token;
-	});
-})
+var secret = JSON.parse( fs.readFileSync(__dirname + '/secret.json'))[0];
 
-
-
+var oauth = new OAuth.OAuth(
+	'https://api.twitter.com/oauth/request_token',
+	'https://api.twitter.com/oauth/access_token',
+	secret.consumer_key, 
+	secret.app_secret,
+	'1.0A',
+	null,
+	'HMAC-SHA1'
+);
 	
 var app = connect()
 	.use(logger('dev'))
     .use(static('app'))
+    .use(render({
+	    root: __dirname,
+	    layout: "layout.ejs",
+	    cache: false
+    }))
 	.use(urlrouter(function(app) {
 		app.get("/", function(req, res, next) {
-			res.end("Ok!");
+			res.end("Usage: /tweets/:username !");
 		});
-		app.get(/^\/tweets\/([a-z]+)$/, function(req, res, next) {
+		app.get(/^\/tweets\/([a-zA-Z]+)$/, function(req, res, next) {
 			var username = req.params[0];
+			
 			options = {
 				protocol: "https",
 				host: "api.twitter.com",
 				pathname: '/1.1/statuses/user_timeline.json',
 				query: {
 					screen_name: username, count: 10
-				},
-				headers: {
-					Authorization: "Bearer " + access_token
 				}
 			};
 			var reqUrl = url.format(options);
 			console.log("reqUrl", reqUrl);
-			request(reqUrl, function(err, res, body) {
-				var tweets = JSON.parse(body);
-				console.log("tweets", tweets);
-			});
+			
+			oauth.get(reqUrl, secret.user_token, secret.user_secret, function(err, data) {
+				if (err, data, res) {
+					console.error(err);
+				}
+				
+				var tweets = JSON.parse(data);
+				res.render('tweets.ejs', {tweets: tweets, name: username});
+				
+			}); 
 		});
 	}));
 	
